@@ -1,0 +1,169 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>LSP Payment Demo</title>
+    <style>
+        body { font-family: Arial, sans-serif; max-width: 800px; margin: 50px auto; padding: 20px; }
+        .processor-section { border: 1px solid #ddd; margin: 20px 0; padding: 20px; border-radius: 5px; }
+        .stripe { border-left: 5px solid #635bff; }
+        .paypal { border-left: 5px solid #0070ba; }
+        button { padding: 10px 20px; margin: 10px; cursor: pointer; }
+        .stripe button { background: #635bff; color: white; border: none; }
+        .paypal button { background: #0070ba; color: white; border: none; }
+        .result { margin: 15px 0; padding: 15px; border-radius: 5px; }
+        .success { background: #d4edda; border: 1px solid #c3e6cb; color: #155724; }
+        .error { background: #f8d7da; border: 1px solid #f5c6cb; color: #721c24; }
+        .lsp-explanation { background: #e2f3ff; padding: 20px; margin: 20px 0; border-radius: 5px; }
+    </style>
+</head>
+<body>
+    <h1>🎯 Liskov Substitution Principle Demo</h1>
+    <div class="lsp-explanation">
+        <h3>What you're testing:</h3>
+        <p><strong>LSP:</strong> Objects of a superclass should be replaceable with objects of a subclass without breaking the application.</p>
+        <p><strong>In our example:</strong> The same <code>PaymentService</code> code works identically with both Stripe and PayPal processors!</p>
+    </div>
+
+    <h2>Test Payment Processors</h2>
+    <p>Try the same payment with different processors. Notice how the code behaves identically!</p>
+
+    <div class="processor-section stripe">
+        <h3>💳 Stripe Processor</h3>
+        <form id="stripe-form">
+            <input type="hidden" name="processor" value="stripe">
+            <label>Amount: $</label>
+            <select name="amount">
+                <option value="10.99">10.99</option>
+                <option value="25.50">25.50</option>
+                <option value="99.99" selected>99.99</option>
+                <option value="199.99">199.99</option>
+            </select>
+            <input type="text" name="payment_token" placeholder="Payment Token" value="stripe_demo_token">
+            <button type="submit">Process with Stripe</button>
+        </form>
+        <div id="stripe-result"></div>
+    </div>
+
+    <div class="processor-section paypal">
+        <h3>🅿️ PayPal Processor</h3>
+        <form id="paypal-form">
+            <input type="hidden" name="processor" value="paypal">
+            <label>Amount: $</label>
+            <select name="amount">
+                <option value="10.99">10.99</option>
+                <option value="25.50">25.50</option>
+                <option value="99.99" selected>99.99</option>
+                <option value="199.99">199.99</option>
+            </select>
+            <input type="text" name="payment_token" placeholder="Payment Token" value="paypal_demo_token">
+            <button type="submit">Process with PayPal</button>
+        </form>
+        <div id="paypal-result"></div>
+    </div>
+
+    <div class="processor-section">
+        <h3>🔄 Compare Both Processors</h3>
+        <p>Process the same payment through both processors simultaneously to see LSP in action!</p>
+        <form id="compare-form">
+            <label>Amount: $</label>
+            <input type="number" name="amount" value="50.00" step="0.01" min="0.01">
+            <input type="text" name="payment_token" placeholder="Payment Token" value="compare_token">
+            <button type="submit">Process with Both Processors</button>
+        </form>
+        <div id="compare-result"></div>
+    </div>
+
+    <script>
+        function getCookie(name) {
+            let cookieValue = null;
+            if (document.cookie && document.cookie !== '') {
+                const cookies = document.cookie.split(';');
+                for (let i = 0; i < cookies.length; i++) {
+                    const cookie = cookies[i].trim();
+                    if (cookie.substring(0, name.length + 1) === (name + '=')) {
+                        cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
+                        break;
+                    }
+                }
+            }
+            return cookieValue;
+        }
+
+        function showResult(elementId, data) {
+            const resultDiv = document.getElementById(elementId);
+            const resultClass = data.success ? 'success' : 'error';
+            
+            resultDiv.innerHTML = `
+                <div class="result ${resultClass}">
+                    <h4>${data.success ? '✅ Payment Successful' : '❌ Payment Failed'}</h4>
+                    <p><strong>Processor:</strong> ${data.processor || data.processor_name}</p>
+                    <p><strong>Transaction ID:</strong> ${data.transaction_id}</p>
+                    <p><strong>Amount:</strong> $${data.amount}</p>
+                    ${data.error_message ? `<p><strong>Error:</strong> ${data.error_message}</p>` : ''}
+                    ${data.lsp_message ? `<p><strong>LSP:</strong> ${data.lsp_message}</p>` : ''}
+                </div>
+            `;
+        }
+
+        document.getElementById('stripe-form').addEventListener('submit', function(e) {
+            e.preventDefault();
+            const formData = new FormData(this);
+            
+            fetch('', {
+                method: 'POST',
+                body: formData,
+                headers: {
+                    'X-CSRFToken': getCookie('csrftoken')
+                }
+            })
+            .then(response => response.json())
+            .then(data => showResult('stripe-result', data));
+        });
+
+        document.getElementById('paypal-form').addEventListener('submit', function(e) {
+            e.preventDefault();
+            const formData = new FormData(this);
+            
+            fetch('', {
+                method: 'POST',
+                body: formData,
+                headers: {
+                    'X-CSRFToken': getCookie('csrftoken')
+                }
+            })
+            .then(response => response.json())
+            .then(data => showResult('paypal-result', data));
+        });
+
+        document.getElementById('compare-form').addEventListener('submit', function(e) {
+            e.preventDefault();
+            const formData = new FormData(this);
+            
+            fetch('compare/', {
+                method: 'POST',
+                body: formData,
+                headers: {
+                    'X-CSRFToken': getCookie('csrftoken')
+                }
+            })
+            .then(response => response.json())
+            .then(data => {
+                document.getElementById('compare-result').innerHTML = `
+                    <div class="result success">
+                        <h4>🎉 LSP Demonstration Complete!</h4>
+                        <p><strong>${data.lsp_demonstration}</strong></p>
+                        
+                        <h5>Stripe Result:</h5>
+                        <p>✅ ${data.stripe_result.processor}: $${data.stripe_result.amount} (${data.stripe_result.transaction_id})</p>
+                        
+                        <h5>PayPal Result:</h5>
+                        <p>✅ ${data.paypal_result.processor}: $${data.paypal_result.amount} (${data.paypal_result.transaction_id})</p>
+                        
+                        <p><strong>🏆 ${data.lsp_success}</strong></p>
+                    </div>
+                `;
+            });
+        });
+    </script>
+</body>
+</html>
