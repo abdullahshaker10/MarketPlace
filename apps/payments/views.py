@@ -7,51 +7,50 @@ Users can test different payment processors through the web interface.
 
 from django.shortcuts import render
 from django.http import JsonResponse
+from django.views import View
 from django.views.decorators.csrf import csrf_exempt
-import json
+from decouple import config
 
-from .models import PaymentService, StripeProcessor, PayPalProcessor
+from apps.payments.models import PaymentService
+from apps.products.market_factories import get_marketplace_factory
 
 
-def payment_demo(request):
-    """
-    Main view to demonstrate LSP with payment processors
-
-    Shows how the same code works with different processors
-    """
-    if request.method == "GET":
-        # Show the demo page
+class PaymentDemoView(View):
+    def get(self, request):
         context = {
-            "processors": ["stripe", "paypal"],
-            "demo_amounts": [10.99, 25.50, 99.99, 199.99],
+            "stripe_api_key": config("STRIPE_API_KEY", default="test"),
+            "paypal_client_id": config("PAYPAL_CLIENT_ID", default="test"),
         }
         return render(request, "payments/demo.html", context)
 
-    elif request.method == "POST":
-        # Process payment using selected processor
+    def post(self, request):
         try:
-            # Get form data
-            processor_type = request.POST.get("processor")
+            market = request.POST.get("market", "US")
             amount = float(request.POST.get("amount", 0))
             payment_token = request.POST.get("payment_token", "demo_token")
 
-            # Create the appropriate processor
-            processor = _get_processor(processor_type)
+            factory = get_marketplace_factory(market)
 
-            # Create payment service (same for both processors!)
-            payment_service = PaymentService(processor)
+            payment_processor = factory.create_payment_processor()
+            shipping_service = factory.create_shipping_service()
+            tax_service = factory.create_tax_service()
 
-            # Process payment (LSP in action - same code for both!)
-            result = payment_service.charge_customer(amount, payment_token)
+            payment_service = PaymentService(payment_processor)
+            payment_result = payment_service.charge_customer(amount, payment_token)
+
+            tax = tax_service.calculate_tax(amount, "some_address")
+            shipment = shipping_service.create_shipment("some_address", {})
 
             return JsonResponse(
                 {
-                    "success": result.success,
-                    "processor": result.processor_name,
-                    "transaction_id": result.transaction_id,
-                    "amount": result.amount,
-                    "error_message": result.error_message,
-                    "lsp_message": f"✅ LSP Success! Same PaymentService code worked with {result.processor_name}",
+                    "success": payment_result.success,
+                    "market": market,
+                    "processor": payment_result.processor_name,
+                    "transaction_id": payment_result.transaction_id,
+                    "amount": payment_result.amount,
+                    "tax": tax,
+                    "shipment": shipment,
+                    "error_message": payment_result.error_message,
                 }
             )
 
@@ -68,47 +67,9 @@ def payment_demo(request):
 @csrf_exempt
 def api_payment(request):
     """
-    API endpoint to test LSP programmatically
-
-    POST /payments/api/ with JSON:
-    {
-        "processor": "stripe" or "paypal",
-        "amount": 99.99,
-        "payment_token": "test_token"
-    }
+    API endpoint for payment processing
     """
-    if request.method == "POST":
-        try:
-            data = json.loads(request.body)
-
-            processor_type = data.get("processor")
-            amount = float(data.get("amount", 0))
-            payment_token = data.get("payment_token", "api_token")
-
-            # Demonstrate LSP - same code for both processors
-            processor = _get_processor(processor_type)
-            payment_service = PaymentService(processor)
-            result = payment_service.charge_customer(amount, payment_token)
-
-            return JsonResponse(
-                {
-                    "success": result.success,
-                    "processor_name": result.processor_name,
-                    "transaction_id": result.transaction_id,
-                    "amount": result.amount,
-                    "error_message": result.error_message,
-                    "lsp_demo": {
-                        "message": "This API works identically with both Stripe and PayPal!",
-                        "principle": "Liskov Substitution Principle",
-                        "benefit": "Processors are completely interchangeable",
-                    },
-                }
-            )
-
-        except Exception as e:
-            return JsonResponse({"error": str(e)}, status=400)
-
-    return JsonResponse({"error": "POST method required"}, status=405)
+    pass
 
 
 def compare_processors(request):

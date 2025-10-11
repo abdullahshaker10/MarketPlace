@@ -3,13 +3,9 @@ Payment URLs for LSP demonstration
 """
 
 from django.urls import path
-from . import views
-
-app_name = 'payments'
+from .views import PaymentDemoView, api_payment
 
 urlpatterns = [
-    path('', views.payment_demo, name='demo'),
-    path('api/', views.api_payment, name='api'),
-    path('compare/', views.compare_processors, name='compare'),
-    path('lsp-explanation/', views.lsp_explanation, name='explanation'),
+    path("demo/", PaymentDemoView.as_view(), name="payment_demo"),
+    path("api/", api_payment, name="api_payment"),
 ]
